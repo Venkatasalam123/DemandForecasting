@@ -96,7 +96,7 @@ if start_date and end_date:
                 'Prediction': predictions
             })
             st.line_chart(result_df.set_index('Date'))
-            st.write(result_df)
+            # st.write(result_df)
     else:
         st.error("End date must be on or after the start date.")
 else:
