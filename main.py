@@ -131,6 +131,7 @@ if start_date and end_date:
         unique_rows_df = input_data.copy()
         unique_rows_df['State'] = State
         unique_rows_df['Product Category'] = Category
+        unique_rows_df['Promotion Type'] = Promotion
         unique_rows_df = unique_rows_df[['State', 'Product Category', 'Promotion Type', 'Year', 'Month', 'Population', 'Average High Temp', 'Average Low Temp',
         'Rainfall', 'Money Supply M0', 'Money Supply M1', 'Inflation Rate']].drop_duplicates()
         unique_rows_df.reset_index(drop = True, inplace = True)
