@@ -15,10 +15,10 @@ import datetime
 
 
 # Load the model and label encoders
-model = joblib.load('final_model_contoso_modified.pkl')
+model = joblib.load('test_model.pkl')
 label_encoders = joblib.load('label_encoders_contoso_modified.pkl')
 
-folder = '../Data/Synthetic/'
+folder = 'Data/'
 df_state_metric = pd.read_csv(os.path.join(folder, 'state_metric.csv'))
 df_monthwise_metric = pd.read_csv(os.path.join(folder, 'monthwise_metric.csv'))
 df = pd.read_csv(os.path.join(folder, 'Sales.csv'))
