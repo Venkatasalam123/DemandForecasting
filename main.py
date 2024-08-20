@@ -95,7 +95,7 @@ col1, col2 = st.columns(2)
 with col1:
     start_date = st.date_input("Start Date", value=datetime.date.today(), min_value=datetime.date(2000, 1, 1))
 with col2:
-    end_date = st.date_input("End Date", value=datetime.date.today() + datetime.timedelta(days=10), min_value=start_date)
+    end_date = st.date_input("End Date", value=datetime.date.today() + datetime.timedelta(days=90), min_value=start_date)
 
 if start_date and end_date:
     if end_date >= start_date:
