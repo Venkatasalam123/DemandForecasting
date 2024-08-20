@@ -15,7 +15,7 @@ import datetime
 
 
 # Load the model and label encoders
-model = joblib.load('test_model.pkl')
+model = joblib.load('final_model_contoso_modified.pkl')
 label_encoders = joblib.load('label_encoders_contoso_modified.pkl')
 
 folder = 'Data/'
