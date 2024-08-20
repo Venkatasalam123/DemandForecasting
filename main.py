@@ -15,8 +15,13 @@ import datetime
 
 
 # Load the model and label encoders
-model = joblib.load('final_model.pkl')
-label_encoders = joblib.load('label_encoders.pkl')
+model = joblib.load('final_model_contoso_modified.pkl')
+label_encoders = joblib.load('label_encoders_contoso_modified.pkl')
+
+folder = '../Data/Synthetic/'
+df_state_metric = pd.read_csv(os.path.join(folder, 'state_metric.csv'))
+df_monthwise_metric = pd.read_csv(os.path.join(folder, 'monthwise_metric.csv'))
+df = pd.read_csv(os.path.join(folder, 'Sales.csv'))
 
 def extract_date_components(df_sales, date_column):
     # Convert 'Invoice date' column to datetime if it's not already
@@ -52,17 +57,39 @@ def extract_date_components(df_sales, date_column):
     df_sales['season'] = df_sales[date_column].dt.month.apply(get_season)
     df_sales.sort_values(by = date_column, ascending = True, inplace = True)
     # df_sales.drop([date_column], axis = 1, inplace = True)
+
+    holidays_list = [
+    "2023-01-01",
+    "2023-01-26",
+    "2023-03-08",
+    "2023-04-07",
+    "2023-04-14",
+    "2023-04-22",
+    "2023-05-01",
+    "2023-05-05",
+    "2023-06-29",
+    "2023-08-15",
+    "2023-09-28",
+    "2023-10-02",
+    "2023-10-24",
+    "2023-11-12",
+    "2023-12-25"]
+    
+    df_sales['is_holiday'] = 0
+    df_sales.loc[df_sales[date_column].isin(holidays_list), 'is_holiday'] = 1
     
     return df_sales
+
 
 
 # Streamlit input example
 st.title("Demand Forecasting App")
 
-Continent = st.selectbox("Continent", label_encoders['Continent'].classes_)
-ProductSubcategoryName = st.selectbox("Product Sub Category", label_encoders['ProductSubcategoryName'].classes_)
-ProductCategoryName = st.selectbox("Product Category", label_encoders['ProductCategoryName'].classes_)
-Country = st.selectbox("Country", label_encoders['Country'].classes_)
+State = st.selectbox("State", label_encoders['State'].classes_)
+Category = st.selectbox("Product Category", label_encoders['Product Category'].classes_)
+Promotion = st.selectbox("Promotion Type", label_encoders['Promotion Type'].classes_)
+
+df_filtered = df[(df['State'] == State) & (df['Product Category'] == Category)][['Date', 'Sales Quantity']]
 
 col1, col2 = st.columns(2)
 with col1:
@@ -75,28 +102,69 @@ if start_date and end_date:
         date_range = pd.date_range(start=start_date, end=end_date, freq='D')
 
         input_data = pd.DataFrame({
-            'Continent': [Continent] * len(date_range),
-            'ProductSubcategoryName': [ProductSubcategoryName] * len(date_range),
-            'ProductCategoryName': [ProductCategoryName] * len(date_range),
-            'Country' : [Country] * len(date_range),
+            'State': [State] * len(date_range),
+            'Product Category': [Category] * len(date_range),
+            'Promotion Type': [Promotion] * len(date_range),
             'Date': date_range
         })
 
-        for col in ['Continent', 'ProductSubcategoryName', 'ProductCategoryName', 'Country']:
+        input_data = pd.merge(input_data, df_state_metric, on = ['State'])
+
+
+        for col in ['State', 'Product Category', 'Promotion Type']:
             input_data[col] = label_encoders[col].transform(input_data[col])
 
         input_data['Date'] = pd.to_datetime(input_data['Date'])
         input_data = extract_date_components(input_data, 'Date')
         input_data.drop(['Date'], axis = 1, inplace = True)
 
-        if st.button("Predict"):
-            predictions  = model.predict(input_data)
-            result_df = pd.DataFrame({
-                'Date': date_range,
-                'Prediction': predictions
-            })
-            st.line_chart(result_df.set_index('Date'))
-            # st.write(result_df)
+        input_data = pd.merge(input_data, df_monthwise_metric[['Month', 'Money Supply M0', 'Money Supply M1', 'Inflation Rate']], on = ['Month'])
+        columns = ['State', 'Population', 'Average High Temp', 'Average Low Temp',
+            'Rainfall', 'Money Supply M0', 'Money Supply M1', 'Inflation Rate',
+            'Product Category', 'Promotion Type', 'Year', 'Quarter', 'Month', 'Week', 'WeekOfMonth',
+            'Day', 'Is_Weekend', 'DayOfWeek', 'DayOfYear', 'is_start_of_month',
+            'is_end_of_month', 'season', 'is_holiday']
+        input_data = input_data[columns]
+
+
+        st.write('Influencing Features used are Population, Average High Temp, Average Low Temp, Rainfall, Money Supply M0, Money Supply M1, Inflation Rate')
+        unique_rows_df = input_data.copy()
+        unique_rows_df['State'] = State
+        unique_rows_df['Product Category'] = Category
+        unique_rows_df = unique_rows_df[['State', 'Product Category', 'Promotion Type', 'Year', 'Month', 'Population', 'Average High Temp', 'Average Low Temp',
+        'Rainfall', 'Money Supply M0', 'Money Supply M1', 'Inflation Rate']].drop_duplicates()
+        unique_rows_df.reset_index(drop = True, inplace = True)
+        st.write(unique_rows_df)
+
+        st.write('Below table shows how much each feature is influencing Sales quantity')
+        fi = model.feature_importances_
+        df_fi = pd.DataFrame(columns, columns = ['Columns'])
+        df_fi['Feature Importance'] = fi
+        df_fi.sort_values('Feature Importance', ascending = False, inplace = True)
+        df_fi['Feature Importance'] = round((df_fi['Feature Importance'] * 100), 1)
+        df_fi['Feature Importance'] = df_fi['Feature Importance'].astype(str) + ' %'
+        # df_fi.reset_index(drop = True, inplace = True)
+        df_fi.set_index('Columns', inplace = True)
+        st.write(df_fi.T)
+
+        # if st.button("Predict"):
+        predictions  = model.predict(input_data)
+        result_df = pd.DataFrame({
+            'Date': date_range,
+            'Predicted Sales Quantity': predictions
+        })
+
+        result_df['Date'] = pd.to_datetime(result_df['Date'])
+        df_filtered['Date'] = pd.to_datetime(df_filtered['Date'])
+        result_df = result_df.set_index('Date')
+        df_filtered = df_filtered.set_index('Date')
+        merged_df = df_filtered.join(result_df, how='outer') 
+        st.write("## Prediction")
+        st.line_chart(merged_df)
+
+        
+
+            
     else:
         st.error("End date must be on or after the start date.")
 else:
